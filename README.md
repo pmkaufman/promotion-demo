@@ -49,9 +49,7 @@ Since actions will be performed against multiple Orgs, a `Service Account` is re
 
 2. The following variables are required and must be added as GitHub repository secrets.
 
-```
 Browse to the Secrets page by clicking `Settings` (top menu bar), then `Secrets` (left menu bar), and finally click `Actions`.
-```
 
 Add the following variables:
 
