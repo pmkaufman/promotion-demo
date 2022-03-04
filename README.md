@@ -75,7 +75,7 @@ Add the following variables:
     - The `cpln-gvc-prod.yaml` file defines the Pull Secret and GVC to be created/updated for the `prod` Org.
     - The `cpln-workload.yaml` file defines the Workload to be created/updated corresponding to the review/dev/staging/prod Workloads. 
 
-
+5. In order for the GitHub Actions to execute, they need to be enabled by clicking the `Actions` tab and clicking the `I understand my workflows, go ahead and enable them` button. 
 ## Running the App
 
 After the GitHub Action has successfully deployed the application, it can be tested by following these steps:
