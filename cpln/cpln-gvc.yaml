@@ -1,0 +1,8 @@
+kind: gvc
+name: GVC_NAME
+description: Promote Demo.
+spec:
+  staticPlacement:
+    locationLinks:
+      - //location/aws-us-west-2
+      - //location/gcp-us-east1

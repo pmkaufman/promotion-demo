@@ -1,0 +1,19 @@
+kind: secret
+name: dev-pull-secret
+description: dev-pull-secret
+type: docker
+data: >-
+  {"auths":{"ORG_NAME_DEVELOPMENT.registry.cpln.io":{"username":"<token>","password":"CPLN_TOKEN"}}}
+
+---
+
+kind: gvc
+name: GVC_NAME
+description: Promote Example
+spec:
+  pullSecretLinks:
+    - //secret/dev-pull-secret
+  staticPlacement:
+    locationLinks:
+      - //location/aws-us-west-2
+      - //location/gcp-us-east1

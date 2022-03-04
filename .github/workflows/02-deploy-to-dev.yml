@@ -1,0 +1,57 @@
+# Control Plane GitHub Action
+
+name: 02-Deploy-To-Dev
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+    paths-ignore:
+      - ".github/workflows/**"
+
+# Convert the GitHub secret variables to environment variables for use by the Control Plane CLI
+env:
+  CPLN_GVC: ${{secrets.CPLN_GVC}}
+  CPLN_WORKLOAD: ${{secrets.CPLN_WORKLOAD}}
+  CPLN_IMAGE: ${{secrets.CPLN_IMAGE}}
+  CPLN_ORG_DEVELOPMENT: ${{secrets.CPLN_ORG_DEVELOPMENT}}
+
+jobs:
+  deploy-to-dev:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Execute Release Tasks
+        shell: bash
+        run: ./release/dev/release-tasks.sh
+
+      - name: Set Short SHA
+        run: echo "SHORT_SHA=`echo ${{ github.event.pull_request.head.sha }} | cut -c1-7`" >> $GITHUB_ENV
+
+      - name: Set Org Name and Token
+        run: |
+          echo "CPLN_ORG=`echo ${{secrets.CPLN_ORG_DEVELOPMENT}}`" >> $GITHUB_ENV
+          echo "CPLN_TOKEN=`echo ${{secrets.CPLN_TOKEN_DEVELOPMENT}}`" >> $GITHUB_ENV
+
+      - name: Install Control Plane CLI and Authenticate
+        shell: bash
+        run: |
+          sudo npm install -g @controlplane/cli
+          cpln --version
+          cpln profile update default --token ${CPLN_TOKEN}
+
+      - name: Substitute Tokens in Control Plane YAML Files and Create/Update GVC & Workload
+        shell: bash
+        working-directory: ./cpln
+        run: |
+          sed -i "s/GVC_NAME/${CPLN_GVC}/" cpln-gvc.yaml
+          sed -i "s/WORKLOAD_NAME/dev-${CPLN_WORKLOAD}/" cpln-workload.yaml
+          sed -i "s/IMAGE_NAME_TAG/\/\/image\/${CPLN_IMAGE}:${SHORT_SHA}/" cpln-workload.yaml
+          cpln apply -f cpln-gvc.yaml
+          cpln apply -f cpln-workload.yaml --gvc ${CPLN_GVC}

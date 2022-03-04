@@ -1,0 +1,78 @@
+# Control Plane GitHub Action
+
+name: 03-Deploy-To-Stage-or-Prod
+
+# Controls when the workflow will run. Allows you to run this workflow manually from the Actions tab
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        required: true
+        default: "stage"
+        description: Environment To Deploy To
+        options:
+          - stage
+          - prod
+
+# Convert the GitHub secret variables to environment variables for use by the Control Plane CLI
+env:
+  CPLN_GVC: ${{secrets.CPLN_GVC}}
+  CPLN_WORKLOAD: ${{secrets.CPLN_WORKLOAD}}
+  CPLN_IMAGE: ${{secrets.CPLN_IMAGE}}
+  CPLN_ORG_DEVELOPMENT: ${{secrets.CPLN_ORG_DEVELOPMENT}}
+
+jobs:
+  deploy-to-stage-or-prod:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Execute Release Tasks
+        shell: bash
+        run: ./release/${{ github.event.inputs.environment }}/release-tasks.sh
+
+      - name: Set Org Name and Token - Staging/Prod
+        run: |
+          echo "CPLN_ORG=`echo ${{secrets.CPLN_ORG_PRODUCTION}}`" >> $GITHUB_ENV
+          echo "CPLN_TOKEN=`echo ${{secrets.CPLN_TOKEN_PRODUCTION}}`" >> $GITHUB_ENV
+
+      - name: Install Control Plane CLI and Authenticate
+        shell: bash
+        run: |
+          sudo npm install -g @controlplane/cli
+          cpln --version
+          echo "Deploying To Environment: ${{ github.event.inputs.environment }}"
+
+      - name: Get TAG of Deployed Dev Image
+        shell: bash
+        run: |
+          echo "IMAGE_TAG=`echo $(cpln workload get -o json --org ${{secrets.CPLN_ORG_DEVELOPMENT}} --token ${{secrets.CPLN_TOKEN_DEVELOPMENT}} | jq -r '.items[] | select(.name=="dev-"+env.CPLN_WORKLOAD) | .spec.containers[0].image[(.spec.containers[0].image | rindex(":"))+1:]')`" >> $GITHUB_ENV
+          cpln profile update default --token ${CPLN_TOKEN}
+
+      - name: Substitute Tokens in Control Plane YAML Files and Create/Update GVC - Stage
+        if: ${{ github.event.inputs.environment == 'stage' }}
+        shell: bash
+        working-directory: ./cpln
+        run: |
+          sed -i "s/WORKLOAD_NAME/stage-${CPLN_WORKLOAD}/" cpln-workload.yaml
+
+      - name: Substitute Tokens in Control Plane YAML Files and Create/Update GVC - Prod
+        if: ${{ github.event.inputs.environment == 'prod' }}
+        shell: bash
+        working-directory: ./cpln
+        run: |
+          sed -i "s/WORKLOAD_NAME/${CPLN_WORKLOAD}/" cpln-workload.yaml
+
+      - name: Substitute Tokens in Control Plane YAML Files and Create/Update GVC & Workload - Stage/Prod Common
+        shell: bash
+        working-directory: ./cpln
+        run: |
+          sed -i "s/ORG_NAME_DEVELOPMENT/${CPLN_ORG_DEVELOPMENT}/" cpln-gvc-prod.yaml
+          sed -i "s/CPLN_TOKEN/${{secrets.CPLN_TOKEN_DEVELOPMENT}}/" cpln-gvc-prod.yaml
+          sed -i "s/GVC_NAME/${CPLN_GVC}/" cpln-gvc-prod.yaml
+          sed -i "s/IMAGE_NAME_TAG/${CPLN_ORG_DEVELOPMENT}.registry.cpln.io\/${CPLN_IMAGE}:${IMAGE_TAG}/" cpln-workload.yaml
+          cpln apply -f cpln-gvc-prod.yaml
+          cpln apply -f cpln-workload.yaml --gvc ${CPLN_GVC}

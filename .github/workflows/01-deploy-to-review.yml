@@ -1,0 +1,68 @@
+# Control Plane GitHub Action
+
+name: 01-Deploy-To-Review
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    branches:
+      - main
+    paths-ignore:
+      - ".github/workflows/**"
+
+# Convert the GitHub secret variables to environment variables for use by the Control Plane CLI
+env:
+  CPLN_ORG: ${{secrets.CPLN_ORG_DEVELOPMENT}}
+  CPLN_GVC: ${{secrets.CPLN_GVC}}
+  CPLN_WORKLOAD: ${{secrets.CPLN_WORKLOAD}}
+  CPLN_TOKEN: ${{secrets.CPLN_TOKEN_DEVELOPMENT}}
+  CPLN_IMAGE: ${{secrets.CPLN_IMAGE}}
+
+jobs:
+  deploy-to-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Execute Release Tasks
+        shell: bash
+        run: ./release/review/release-tasks.sh
+
+      - name: Set Short SHA
+        run: echo "SHORT_SHA=`echo ${{ github.event.pull_request.head.sha }} | cut -c1-7`" >> $GITHUB_ENV
+
+      - name: Install Control Plane CLI and Authenticate
+        shell: bash
+        run: |
+          sudo npm install -g @controlplane/cli
+          cpln --version
+          cpln profile update default --token ${CPLN_TOKEN}
+          # echo "SHA: ${GITHUB_SHA}. Short SHA: ${GITHUB_SHA::7}"
+
+      - name: Containerize application and push image
+        shell: bash
+        run: |
+          cpln image docker-login
+          cpln image build --name ${CPLN_IMAGE}:${SHORT_SHA} --dockerfile ./Dockerfile --push
+
+      - name: Normalize Branch Name
+        run: echo "PREVIEW_NAME=`echo ${GITHUB_HEAD_REF} | tr '/' '-'`" >> $GITHUB_ENV
+
+      - name: Substitute Tokens in Control Plane YAML Files
+        shell: bash
+        working-directory: ./cpln
+        run: |
+          sed -i "s/GVC_NAME/${CPLN_GVC}/" cpln-gvc.yaml
+          sed -i "s/WORKLOAD_NAME/${PREVIEW_NAME}-review-${CPLN_WORKLOAD}/" cpln-workload.yaml
+          sed -i "s/IMAGE_NAME_TAG/\/\/image\/${CPLN_IMAGE}:${SHORT_SHA}/" cpln-workload.yaml
+
+      - name: Run CPLN Apply
+        shell: bash
+        working-directory: ./cpln
+        run: |
+          cpln apply -f cpln-gvc.yaml
+          cpln apply -f cpln-workload.yaml --gvc ${CPLN_GVC}
