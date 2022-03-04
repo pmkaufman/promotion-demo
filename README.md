@@ -10,8 +10,7 @@ While this example utilizes two orgs, it illustrates there's no limitation to th
 
 This project contains three GitHub Actions (in the `./.github/workflows` directory):
 
-1. Before making code changes, create a new branch and perform any changes in the new branch. When ready to deploy a review workload,  
-   simply create a pull request to the main branch. On a pull request (or updates to an existing pull request) to the `main` branch, the application is containerized and pushed to the dev Org's private repository. The GVC and `Review Workload` is created (if it not already created) by applying the YAML contents of the files `./cpln/cpln-gvc.yaml` and `./cpln/cpln-workload.yaml`. The name of the `Review Workload` is prefixed by the name of the branch that created the pull request and a dash.
+1. Before making code changes, create a new branch and perform any changes in the new branch. When ready to deploy a review workload, simply create a pull request to the main branch. On a pull request (or updates to an existing pull request) to the `main` branch, the application is containerized and pushed to the dev Org's private repository. The GVC and `Review Workload` is created (if it not already created) by applying the YAML contents of the files `./cpln/cpln-gvc.yaml` and `./cpln/cpln-workload.yaml`. The name of the `Review Workload` is prefixed by the name of the branch that created the pull request and a dash.
 2. When a pull request is accepted and the code is merged into the `main` branch, a `dev` workload is
    updated (or created if it doesn't exists) in the dev Org by applying the same files as step 1, except that the workload name is prefixed with `dev-`. This allows the application to be reviewed and tested before being pushed to the production Org.
 3. The promotion to the `stage` and `prod` workload is accomplished by manually executing the `Deploy-To-Stage-or-Prod`
