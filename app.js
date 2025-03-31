@@ -3,6 +3,6 @@ const PORT = process.env.PORT || 8080
 
 express()
     .get('/', (req, res) => {
-        res.send('Hello Kaufman!');
+        res.send('Hello, Peter Kaufman!');
     })
     .listen(PORT, () => console.log(`Listening on ${PORT}`))
